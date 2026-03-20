@@ -1,3 +1,5 @@
+[Review Assignment Due Date](https://classroom.github.com/a/i-dPW--H)
+
 # Multiple Testing with FWER and FDR Exercise
 
 This assignment asks you to implement multiple-testing analysis for family-wise and false-discovery error control in one reproducible pipeline.
@@ -52,15 +54,17 @@ You only implement the analysis functions listed below.
 
 ### Mapping from symbols to config keys
 
-| Symbol or quantity | `config/assignment.json` key | Notes |
-|---|---|---|
-| $N$ | `N` | sample size per simulation |
-| $M$ | `M` | number of hypotheses per simulation |
-| $M_0$ | `M0` | number of true null hypotheses in mixed design |
-| $L$ | `L` | number of simulations |
-| $p_t$ | `p_treat` | treatment-assignment probability in DGP |
-| $\tau$ | `tau_alternative` | treatment effect for false null hypotheses |
-| $\alpha$ | `alpha` | significance level |
+
+| Symbol or quantity | `config/assignment.json` key | Notes                                          |
+| ------------------ | ---------------------------- | ---------------------------------------------- |
+| $N$                | `N`                          | sample size per simulation                     |
+| $M$                | `M`                          | number of hypotheses per simulation            |
+| $M_0$              | `M0`                         | number of true null hypotheses in mixed design |
+| $L$                | `L`                          | number of simulations                          |
+| $p_t$              | `p_treat`                    | treatment-assignment probability in DGP        |
+| $\tau$             | `tau_alternative`            | treatment effect for false null hypotheses     |
+| $\alpha$           | `alpha`                      | significance level                             |
+
 
 ### Mathematical targets
 
@@ -86,12 +90,12 @@ $$
 
 For one simulation:
 $$
-FDR = \frac{\#\{\text{rejected true nulls}\}}{\#\{\text{all rejections}\}},
+FDR = \frac{\text{rejected true nulls}}{\text{all rejections}},
 $$
 with the convention $FDR=0$ when there are no rejections.
 
 $$
-Power = \frac{\#\{\text{rejected false nulls}\}}{\#\{\text{all false nulls}\}}.
+Power = \frac{\text{rejected false nulls}}{\text{all false nulls}}.
 $$
 
 Across complete-null simulations:
@@ -163,12 +167,12 @@ def summarize_multiple_testing(null_pvalues: pd.DataFrame, mixed_pvalues: pd.Dat
 1. `null_pvalues` has columns `sim_id`, `hypothesis_id`, `p_value`.
 2. `mixed_pvalues` has columns `sim_id`, `hypothesis_id`, `p_value`, `is_true_null`.
 3. Use complete-null simulations to compute:
-   - `fwer_uncorrected`
-   - `fwer_bonferroni`
-   - `fwer_holm`
+  - `fwer_uncorrected`
+  - `fwer_bonferroni`
+  - `fwer_holm`
 4. Use mixed simulations to compute simulation-level FDR and power, then average across simulations for:
-   - `fdr_uncorrected`, `fdr_bh`, `fdr_by`
-   - `power_uncorrected`, `power_bh`, `power_by`
+  - `fdr_uncorrected`, `fdr_bh`, `fdr_by`
+  - `power_uncorrected`, `power_bh`, `power_by`
 5. Return exactly this dictionary:
 
 ```python
@@ -230,9 +234,8 @@ You may push multiple times before the deadline. The latest score is recorded.
 Grading has two components.
 
 1. Core implementation correctness (70 points).
-   This checks rejection-rule logic, metric formulas, ordering and shape consistency, and required dictionary outputs in `src/multiple_testing.py`.
-
+  This checks rejection-rule logic, metric formulas, ordering and shape consistency, and required dictionary outputs in `src/multiple_testing.py`.
 2. Report and output completeness (30 points).
-   This checks pipeline outputs in `cleaned/` and `output/`, required keys in `output/results.json`, and successful rendering/content checks for `report/solution.html`.
+  This checks pipeline outputs in `cleaned/` and `output/`, required keys in `output/results.json`, and successful rendering/content checks for `report/solution.html`.
 
 Commit-message style and other immutable repository-history details are not grading targets.
