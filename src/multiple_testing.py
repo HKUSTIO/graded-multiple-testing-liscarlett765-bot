@@ -90,35 +90,74 @@ def bonferroni_rejections(p_values: np.ndarray, alpha: float) -> np.ndarray:
     """
     Return boolean rejection decisions under Bonferroni correction.
     """
-    raise NotImplementedError("Implement bonferroni_rejections().")
+    m = len(p_values)
+    return p_values <= alpha / m
 
 
 def holm_rejections(p_values: np.ndarray, alpha: float) -> np.ndarray:
     """
     Return boolean rejection decisions under Holm step-down correction.
     """
-    raise NotImplementedError("Implement holm_rejections().")
+    m = len(p_values)
+    sorted_indices = np.argsort(p_values)
+    rejections = np.zeros(m, dtype=bool)
+
+    for k in range(m):
+        if p_values[sorted_indices[k]] <= alpha / (m - k):
+            rejections[sorted_indices[k]] = True
+        else:
+            break
+
+    return rejections
 
 
 def benjamini_hochberg_rejections(p_values: np.ndarray, alpha: float) -> np.ndarray:
     """
     Return boolean rejection decisions under Benjamini-Hochberg correction.
     """
-    raise NotImplementedError("Implement benjamini_hochberg_rejections().")
+    m = len(p_values)
+    sorted_indices = np.argsort(p_values)
+    rejections = np.zeros(m, dtype=bool)
+
+    max_k = -1
+    for k in range(m):
+        rank = k + 1
+        if p_values[sorted_indices[k]] <= rank * alpha / m:
+            max_k = k
+
+    if max_k >= 0:
+        rejections[sorted_indices[: max_k + 1]] = True
+
+    return rejections
 
 
 def benjamini_yekutieli_rejections(p_values: np.ndarray, alpha: float) -> np.ndarray:
     """
     Return boolean rejection decisions under Benjamini-Yekutieli correction.
     """
-    raise NotImplementedError("Implement benjamini_yekutieli_rejections().")
+    m = len(p_values)
+    c_m = np.sum(1.0 / np.arange(1, m + 1))
+    sorted_indices = np.argsort(p_values)
+    rejections = np.zeros(m, dtype=bool)
+
+    max_k = -1
+    for k in range(m):
+        rank = k + 1
+        if p_values[sorted_indices[k]] <= rank * alpha / (m * c_m):
+            max_k = k
+
+    if max_k >= 0:
+        rejections[sorted_indices[: max_k + 1]] = True
+
+    return rejections
 
 
 def compute_fwer(rejections_null: np.ndarray) -> float:
     """
     Return family-wise error rate from a [L, M] rejection matrix under the complete null.
     """
-    raise NotImplementedError("Implement compute_fwer().")
+    any_rejection_per_sim = np.any(rejections_null, axis=1)
+    return float(np.mean(any_rejection_per_sim))
 
 
 def compute_fdr(rejections: np.ndarray, is_true_null: np.ndarray) -> float:
@@ -126,14 +165,23 @@ def compute_fdr(rejections: np.ndarray, is_true_null: np.ndarray) -> float:
     Return FDR for one simulation: false discoveries among all discoveries.
     Use 0.0 when there are no rejections.
     """
-    raise NotImplementedError("Implement compute_fdr().")
+    total_rejections = np.sum(rejections)
+    if total_rejections == 0:
+        return 0.0
+    false_discoveries = np.sum(rejections & is_true_null)
+    return float(false_discoveries / total_rejections)
 
 
 def compute_power(rejections: np.ndarray, is_true_null: np.ndarray) -> float:
     """
     Return power for one simulation: true rejections among false null hypotheses.
     """
-    raise NotImplementedError("Implement compute_power().")
+    is_false_null = ~is_true_null
+    total_false_nulls = np.sum(is_false_null)
+    if total_false_nulls == 0:
+        return 0.0
+    true_rejections = np.sum(rejections & is_false_null)
+    return float(true_rejections / total_false_nulls)
 
 
 def summarize_multiple_testing(
@@ -147,4 +195,60 @@ def summarize_multiple_testing(
       fdr_uncorrected, fdr_bh, fdr_by,
       power_uncorrected, power_bh, power_by.
     """
-    raise NotImplementedError("Implement summarize_multiple_testing().")
+    # --- FWER branch: complete-null simulations ---
+    null_groups = null_pvalues.groupby("sim_id")
+    l_null = len(null_groups)
+    m_null = null_pvalues.groupby("sim_id").size().iloc[0]
+
+    rej_uncorrected_null = np.zeros((l_null, m_null), dtype=bool)
+    rej_bonferroni_null = np.zeros((l_null, m_null), dtype=bool)
+    rej_holm_null = np.zeros((l_null, m_null), dtype=bool)
+
+    for i, (_, group) in enumerate(null_groups):
+        pv = group.sort_values("hypothesis_id")["p_value"].values
+        rej_uncorrected_null[i] = pv <= alpha
+        rej_bonferroni_null[i] = bonferroni_rejections(p_values=pv, alpha=alpha)
+        rej_holm_null[i] = holm_rejections(p_values=pv, alpha=alpha)
+
+    fwer_uncorrected = compute_fwer(rejections_null=rej_uncorrected_null)
+    fwer_bonferroni = compute_fwer(rejections_null=rej_bonferroni_null)
+    fwer_holm = compute_fwer(rejections_null=rej_holm_null)
+
+    # --- FDR / Power branch: mixed simulations ---
+    mixed_groups = mixed_pvalues.groupby("sim_id")
+
+    fdr_uncorrected_list = []
+    fdr_bh_list = []
+    fdr_by_list = []
+    power_uncorrected_list = []
+    power_bh_list = []
+    power_by_list = []
+
+    for _, group in mixed_groups:
+        group_sorted = group.sort_values("hypothesis_id")
+        pv = group_sorted["p_value"].values
+        true_null = group_sorted["is_true_null"].values.astype(bool)
+
+        rej_unc = pv <= alpha
+        rej_bh = benjamini_hochberg_rejections(p_values=pv, alpha=alpha)
+        rej_by = benjamini_yekutieli_rejections(p_values=pv, alpha=alpha)
+
+        fdr_uncorrected_list.append(compute_fdr(rejections=rej_unc, is_true_null=true_null))
+        fdr_bh_list.append(compute_fdr(rejections=rej_bh, is_true_null=true_null))
+        fdr_by_list.append(compute_fdr(rejections=rej_by, is_true_null=true_null))
+
+        power_uncorrected_list.append(compute_power(rejections=rej_unc, is_true_null=true_null))
+        power_bh_list.append(compute_power(rejections=rej_bh, is_true_null=true_null))
+        power_by_list.append(compute_power(rejections=rej_by, is_true_null=true_null))
+
+    return {
+        "fwer_uncorrected": fwer_uncorrected,
+        "fwer_bonferroni": fwer_bonferroni,
+        "fwer_holm": fwer_holm,
+        "fdr_uncorrected": float(np.mean(fdr_uncorrected_list)),
+        "fdr_bh": float(np.mean(fdr_bh_list)),
+        "fdr_by": float(np.mean(fdr_by_list)),
+        "power_uncorrected": float(np.mean(power_uncorrected_list)),
+        "power_bh": float(np.mean(power_bh_list)),
+        "power_by": float(np.mean(power_by_list)),
+    }
